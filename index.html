@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CodeSec - Security Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div id="login" class="vscode-dark">
+        <div class="login-container">
+            <h1>CodeSec</h1>
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Username">
+                <input type="password" id="password" placeholder="Password">
+                <button class="vscode-button" onclick="login()">Sign In</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard" class="vscode-dark" style="display: none;">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>EXPLORER</span>
+            </div>
+            <div class="sidebar-items">
+                <div class="sidebar-item active" onclick="showPanel('editor')">
+                    <i class="fas fa-code"></i> Editor
+                </div>
+                <div class="sidebar-item" onclick="showPanel('reports')">
+                    <i class="fas fa-shield-alt"></i> Security Reports
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="menu-items">
+                    <span>File</span>
+                    <span>Edit</span>
+                    <span>View</span>
+                    <span>Help</span>
+                </div>
+                <div class="user-info">
+                    <i class="fas fa-user"></i>
+                    <span id="username-display"></span>
+                </div>
+            </div>
+
+            <div id="editor-panel" class="editor-container">
+                <div id="monaco-editor" style="height: 70vh; width: 100%;"></div>
+                <button class="vscode-button run-scan" onclick="uploadCode()">
+                    <i class="fas fa-play"></i> Run Security Scan
+                </button>
+            </div>
+
+            <div id="reports-panel" class="reports-container" style="display: none;">
+                <div class="terminal-like">
+                    <div class="terminal-header">
+                        <i class="fas fa-terminal"></i> Scan Results
+                    </div>
+                    <div id="reports-list" class="terminal-content"></div>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <span id="status-text">Ready</span>
+                <span class="status-item"><i class="fas fa-shield-alt"></i> Secure Mode</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
