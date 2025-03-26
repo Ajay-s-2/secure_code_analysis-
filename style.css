@@ -1,0 +1,16 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+h2 {
+    color: darkred;
+}
+
+button {
+    background-color: darkred;
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+}
