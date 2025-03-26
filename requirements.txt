@@ -1,3 +1,5 @@
-flask>=2.0.0
-flask-jwt-extended>=4.0.0
-flask-cors>=3.0.0
+Flask
+bandit
+eslint
+phpcs
+jinja2
