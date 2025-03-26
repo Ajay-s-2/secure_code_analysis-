@@ -1,77 +1,75 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_jwt_extended import (
-    JWTManager, create_access_token, jwt_required,
-    get_jwt_identity, create_refresh_token
-)
-from flask_cors import CORS
+import os
+import datetime
+import subprocess
+from flask import Flask, request, render_template, redirect, url_for, send_from_directory, flash
 
-app = Flask(__name__, static_folder='static')
-CORS(app)
-app.config["JWT_SECRET_KEY"] = "supersecretkey"
-jwt = JWTManager(app)
+app = Flask(__name__)
 
-# Mock database
-users = {
-    "admin": {"password": "adminpass", "role": "Admin"},
-    "dev": {"password": "devpass", "role": "Developer"},
-    "analyst": {"password": "analystpass", "role": "Security Analyst"}
-}
+UPLOAD_FOLDER = 'uploads'
+REPORT_FOLDER = 'reports'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(REPORT_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-reports = {
-    1: {
-        "id": 1,
-        "title": "Initial Scan Report",
-        "vulnerabilities": [
-            {"name": "SQL Injection", "severity": "High", "recommendation": "Use parameterized queries"},
-            {"name": "XSS", "severity": "Medium", "recommendation": "Sanitize user input"}
-        ]
-    }
-}
+# Security Scanner
+def run_scan(file_path, language):
+    print(f"📄 Scanning file: {file_path} ({language})")
 
-@app.route('/')
-def serve_index():
-    return send_from_directory('static', 'index.html')
+    if language == "python":
+        cmd = f"bandit -r {file_path}"
+    elif language == "javascript":
+        cmd = f"eslint {file_path} --format json"
+    elif language == "php":
+        cmd = f"phpcs --standard=PSR2 {file_path}"
+    else:
+        return "❌ Unsupported file type!"
 
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    
-    user = users.get(username)
-    if user and user['password'] == password:
-        additional_claims = {"role": user['role']}
-        access_token = create_access_token(identity=username, additional_claims=additional_claims)
-        return jsonify({
-            "access_token": access_token,
-            "role": user['role']
-        })
-    return jsonify({"msg": "Invalid credentials"}), 401
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        print("🔍 Scan Completed. Logs:")
+        print(result.stdout)
+        return result.stdout
+    except Exception as e:
+        print(f"⚠️ Error running scan: {e}")
+        return str(e)
 
-@app.route('/upload', methods=['POST'])
-@jwt_required()
-def upload_code():
-    code = request.json.get('code')
-    report_id = len(reports) + 1
-    reports[report_id] = {
-        "id": report_id,
-        "title": f"Scan Report {report_id}",
-        "vulnerabilities": [
-            {"name": "Example Vulnerability", "severity": "High", "recommendation": "Fix this"}
-        ]
-    }
-    return jsonify({"message": "Code analysis started", "report_id": report_id})
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        if 'file' not in request.files or 'language' not in request.form:
+            flash("❌ No file selected!")
+            return redirect(request.url)
 
-@app.route('/reports', methods=['GET'])
-@jwt_required()
-def get_reports():
-    return jsonify(list(reports.values()))
+        file = request.files['file']
+        language = request.form['language']
 
-@app.route('/profile', methods=['GET'])
-@jwt_required()
-def get_profile():
-    current_user = get_jwt_identity()
-    role = users[current_user]['role']
-    return jsonify({"username": current_user, "role": role})
+        if file.filename == '':
+            flash("❌ No file selected!")
+            return redirect(request.url)
+
+        if file:
+            filename = file.filename
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            print(f"✅ File uploaded: {file_path}")
+
+            scan_result = run_scan(file_path, language)
+
+            # Save report
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            report_filename = f"report_{timestamp}.html"
+            report_filepath = os.path.join(REPORT_FOLDER, report_filename)
+
+            with open(report_filepath, "w", encoding="utf-8") as f:
+                f.write(render_template('report.html', scan_result=scan_result))
+
+            return render_template('result.html', scan_result=scan_result, report_filename=report_filename)
+
+    return render_template('index.html')
+
+@app.route('/reports/<filename>')
+def download_report(filename):
+    return send_from_directory(REPORT_FOLDER, filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
