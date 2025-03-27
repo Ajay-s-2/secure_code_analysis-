@@ -1,75 +1,66 @@
+from flask import Flask, request, render_template, jsonify, redirect, url_for
 import os
-import datetime
-import subprocess
-from flask import Flask, request, render_template, redirect, url_for, send_from_directory, flash
+import uuid
+from werkzeug.utils import secure_filename
+from scanner import scan_code
 
 app = Flask(__name__)
+UPLOAD_FOLDER = "uploads"
+ALLOWED_EXTENSIONS = {'py', 'php', 'js'}
+MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
 
-UPLOAD_FOLDER = 'uploads'
-REPORT_FOLDER = 'reports'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(REPORT_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
-# Security Scanner
-def run_scan(file_path, language):
-    print(f"📄 Scanning file: {file_path} ({language})")
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-    if language == "python":
-        cmd = f"bandit -r {file_path}"
-    elif language == "javascript":
-        cmd = f"eslint {file_path} --format json"
-    elif language == "php":
-        cmd = f"phpcs --standard=PSR2 {file_path}"
-    else:
-        return "❌ Unsupported file type!"
+@app.route('/')
+def index():
+    return render_template("index.html")
 
+@app.route('/scan', methods=['POST'])
+def scan():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    
+    file = request.files['file']
+    lang = request.form.get("language")
+    
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"error": "Invalid file type. Allowed: .py, .php, .js"}), 400
+    
+    if lang not in ["python", "php", "javascript"]:
+        return jsonify({"error": "Invalid language selection"}), 400
+    
+    # Generate unique filename to prevent overwrites and path traversal
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(unique_filename))
+    
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        print("🔍 Scan Completed. Logs:")
-        print(result.stdout)
-        return result.stdout
+        file.save(file_path)
+        scan_result = scan_code(file_path, lang)
+        os.remove(file_path)
+        
+        if 'error' in scan_result:
+            return render_template("error.html", error=scan_result['error']), 500
+            
+        return render_template("result.html", scan_result=scan_result)
     except Exception as e:
-        print(f"⚠️ Error running scan: {e}")
-        return str(e)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        app.logger.error(f"Error during scanning: {str(e)}")
+        return render_template("error.html", error="An error occurred during scanning"), 500
 
-@app.route('/', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        if 'file' not in request.files or 'language' not in request.form:
-            flash("❌ No file selected!")
-            return redirect(request.url)
-
-        file = request.files['file']
-        language = request.form['language']
-
-        if file.filename == '':
-            flash("❌ No file selected!")
-            return redirect(request.url)
-
-        if file:
-            filename = file.filename
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            print(f"✅ File uploaded: {file_path}")
-
-            scan_result = run_scan(file_path, language)
-
-            # Save report
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            report_filename = f"report_{timestamp}.html"
-            report_filepath = os.path.join(REPORT_FOLDER, report_filename)
-
-            with open(report_filepath, "w", encoding="utf-8") as f:
-                f.write(render_template('report.html', scan_result=scan_result))
-
-            return render_template('result.html', scan_result=scan_result, report_filename=report_filename)
-
-    return render_template('index.html')
-
-@app.route('/reports/<filename>')
-def download_report(filename):
-    return send_from_directory(REPORT_FOLDER, filename)
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return render_template("error.html", error="File size exceeds 2MB limit"), 413
 
 if __name__ == '__main__':
     app.run(debug=True)
