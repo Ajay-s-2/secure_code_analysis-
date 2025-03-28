@@ -7,190 +7,191 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-            padding-top: 20px;
-            padding-bottom: 50px;
-        }
-        .report-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-        }
-        .report-header {
-            border-bottom: 2px solid #dee2e6;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        .summary-card {
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-        .critical-bg { background-color: #fff0f0; border-left: 4px solid #dc3545; }
-        .high-bg { background-color: #fff8e6; border-left: 4px solid #fd7e14; }
-        .medium-bg { background-color: #f0f7ff; border-left: 4px solid #0d6efd; }
-        .low-bg { background-color: #f0fff4; border-left: 4px solid #28a745; }
-        
         .severity-critical { color: #dc3545; }
         .severity-high { color: #fd7e14; }
         .severity-medium { color: #0d6efd; }
         .severity-low { color: #28a745; }
-        
-        .issue-card {
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid #dee2e6;
-            transition: all 0.2s;
-        }
-        .issue-card:hover {
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
         .code-snippet {
             background-color: #f8f9fa;
             padding: 10px;
             border-radius: 5px;
             font-family: monospace;
             white-space: pre-wrap;
-            overflow-x: auto;
         }
-        .filter-buttons {
-            margin-bottom: 20px;
+        .issue-card {
+            border-left: 4px solid #0d6efd;
+            margin-bottom: 15px;
         }
-        .active-filter {
-            font-weight: bold;
-        }
-        .back-button {
-            margin-top: 30px;
-        }
+        .issue-card.critical { border-left-color: #dc3545; }
+        .issue-card.high { border-left-color: #fd7e14; }
+        .issue-card.medium { border-left-color: #0d6efd; }
+        .issue-card.low { border-left-color: #28a745; }
+        .cwe-link { cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="report-container">
-            <div class="report-header">
-                <h1><i class="bi bi-shield-lock"></i> Security Scan Report</h1>
-                <div class="row mt-4">
-                    <div class="col-md-6">
-                        <p><strong>File scanned:</strong> {{ scan_result.filename }}</p>
-                        <p><strong>Language:</strong> {{ scan_result.language|capitalize }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Scan date:</strong> {{ scan_result.run_started }}</p>
-                        <p><strong>Lines of code:</strong> {{ scan_result.metrics.lines_of_code }}</p>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-lock"></i> Secure Code Scanner
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard">Dashboard</a>
+                <a class="nav-link" href="/logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        {% if scan_result is none or scan_result.get('error') %}
+            <div class="alert alert-danger">
+                {% if scan_result.get('error') %}
+                    {{ scan_result.error }}
+                {% else %}
+                    No scan results available
+                {% endif %}
+            </div>
+        {% elif scan_result.metrics.total_issues == 0 %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i> No security issues found!
+            </div>
+        {% else %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="bi bi-shield-check"></i> Security Scan Report</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>File scanned:</strong> {{ scan_result.filename }}</p>
+                            <p><strong>Language:</strong> {{ scan_result.language }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Scan date:</strong> {{ scan_result.get('run_started', 'N/A') }}</p>
+                            <p><strong>Lines of code:</strong> {{ scan_result.metrics.lines_of_code }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="row">
+
+            <div class="row mb-4">
                 <div class="col-md-3">
-                    <div class="summary-card critical-bg">
-                        <h5 class="severity-critical">Critical</h5>
-                        <h3>{{ scan_result.metrics.critical }}</h3>
+                    <div class="card bg-danger text-white">
+                        <div class="card-body text-center">
+                            <h5>Critical</h5>
+                            <h3>{{ scan_result.metrics.critical }}</h3>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="summary-card high-bg">
-                        <h5 class="severity-high">High</h5>
-                        <h3>{{ scan_result.metrics.high }}</h3>
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h5>High</h5>
+                            <h3>{{ scan_result.metrics.high }}</h3>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="summary-card medium-bg">
-                        <h5 class="severity-medium">Medium</h5>
-                        <h3>{{ scan_result.metrics.medium }}</h3>
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h5>Medium</h5>
+                            <h3>{{ scan_result.metrics.medium }}</h3>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="summary-card low-bg">
-                        <h5 class="severity-low">Low</h5>
-                        <h3>{{ scan_result.metrics.low }}</h3>
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h5>Low</h5>
+                            <h3>{{ scan_result.metrics.low }}</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="filter-buttons">
-                <button class="btn btn-outline-danger btn-sm filter-btn" data-severity="critical">
+
+            <div class="filter-buttons mb-4">
+                <button class="btn btn-sm btn-outline-danger filter-btn" data-severity="critical">
                     Critical ({{ scan_result.metrics.critical }})
                 </button>
-                <button class="btn btn-outline-warning btn-sm filter-btn" data-severity="high">
+                <button class="btn btn-sm btn-outline-warning filter-btn" data-severity="high">
                     High ({{ scan_result.metrics.high }})
                 </button>
-                <button class="btn btn-outline-primary btn-sm filter-btn" data-severity="medium">
+                <button class="btn btn-sm btn-outline-primary filter-btn" data-severity="medium">
                     Medium ({{ scan_result.metrics.medium }})
                 </button>
-                <button class="btn btn-outline-success btn-sm filter-btn" data-severity="low">
+                <button class="btn btn-sm btn-outline-success filter-btn" data-severity="low">
                     Low ({{ scan_result.metrics.low }})
                 </button>
-                <button class="btn btn-outline-secondary btn-sm filter-btn" data-severity="all">
+                <button class="btn btn-sm btn-outline-secondary filter-btn active" data-severity="all">
                     Show All ({{ scan_result.metrics.total_issues }})
                 </button>
             </div>
-            
+
             <div id="issues-container">
-                {% for issue in scan_result.issues %}
-                <div class="issue-card" data-severity="{{ issue.severity.lower() }}">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h5 class="severity-{{ issue.severity.lower() }}">
-                                <i class="bi bi-exclamation-triangle-fill"></i> 
-                                {{ issue.severity }} severity
-                            </h5>
-                            <h4>{{ issue.test_name }}</h4>
+                {% if scan_result.get('checklists') %}
+                    {% for test_id, test_data in scan_result.checklists.items() %}
+                        {% for issue in test_data.issues %}
+                        <div class="card mb-3 issue-card {{ issue.severity.lower() }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5 class="severity-{{ issue.severity.lower() }}">
+                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                            {{ issue.severity }} severity
+                                        </h5>
+                                        <h4>{{ test_data.title }}</h4>
+                                    </div>
+                                    <span class="badge bg-secondary">{{ test_id }}</span>
+                                </div>
+                                
+                                <p class="mt-3"><strong>Confidence:</strong> {{ issue.confidence }}</p>
+                                <p><strong>Location:</strong> {{ issue.location }} (Line {{ issue.line }})</p>
+                                
+                                <div class="mt-3">
+                                    <h6>Description:</h6>
+                                    <p>{{ issue.description }}</p>
+                                </div>
+                                
+                                {% if issue.cwe != "N/A" %}
+                                <div class="mt-2">
+                                    <h6>CWE:</h6>
+                                    <a href="{{ issue.cwe_link }}" target="_blank" class="btn btn-sm btn-outline-dark cwe-link">
+                                        CWE-{{ issue.cwe }} <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                                {% endif %}
+                                
+                                {% if issue.code %}
+                                <div class="mt-3">
+                                    <h6>Code snippet:</h6>
+                                    <div class="code-snippet">{{ issue.code }}</div>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="mt-3">
+                                    <a href="{{ issue.more_info }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        More Information <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-                        <span class="badge bg-secondary">{{ issue.test_id }}</span>
-                    </div>
-                    
-                    <p class="mt-3"><strong>Confidence:</strong> {{ issue.confidence }}</p>
-                    <p><strong>Location:</strong> {{ issue.location }} (Line {{ issue.line }})</p>
-                    
-                    <div class="mt-3">
-                        <h6>Description:</h6>
-                        <p>{{ issue.description }}</p>
-                    </div>
-                    
-                    {% if issue.cwe != "N/A" %}
-                    <div class="mt-2">
-                        <h6>CWE:</h6>
-                        <a href="{{ issue.cwe_link }}" target="_blank" class="btn btn-sm btn-outline-dark">
-                            CWE-{{ issue.cwe }} <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                    </div>
-                    {% endif %}
-                    
-                    {% if issue.code %}
-                    <div class="mt-3">
-                        <h6>Code snippet:</h6>
-                        <div class="code-snippet">{{ issue.code }}</div>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="mt-3">
-                        <a href="{{ issue.more_info }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                            More Information <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                    </div>
-                </div>
+                        {% endfor %}
+                    {% endfor %}
                 {% else %}
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle-fill"></i> No security issues found!
-                </div>
-                {% endfor %}
+                    <div class="alert alert-info">
+                        No detailed issues found in scan results
+                    </div>
+                {% endif %}
             </div>
-            
-            <div class="text-center back-button">
-                <a href="/" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Scan Another File
-                </a>
-            </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="/" class="btn btn-primary">
+                <i class="bi bi-arrow-left"></i> Scan Another File
+            </a>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -207,7 +208,7 @@
                     // Filter issues
                     const issues = document.querySelectorAll('.issue-card');
                     issues.forEach(issue => {
-                        if (severity === 'all' || issue.dataset.severity === severity) {
+                        if (severity === 'all' || issue.classList.contains(severity)) {
                             issue.style.display = 'block';
                         } else {
                             issue.style.display = 'none';
